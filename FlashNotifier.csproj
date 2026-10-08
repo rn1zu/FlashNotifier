@@ -1,0 +1,39 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <!-- Target framework -->
+    <TargetFramework>net10.0</TargetFramework>
+
+    <!-- Enable implicit usings and nullable reference types -->
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+
+    <!-- Assembly identity -->
+    <AssemblyName>FlashNotifier</AssemblyName>
+    <RootNamespace>FlashNotifier</RootNamespace>
+
+    <!-- Copy NuGet dependencies to the output folder -->
+    <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
+
+    <!-- Plugin version (SemVer). Keep in sync with ModuleVersion in FlashNotifier.cs -->
+    <Version>1.0.0</Version>
+    <AssemblyVersion>1.0.0.0</AssemblyVersion>
+    <FileVersion>1.0.0.0</FileVersion>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- CounterStrikeSharp API from NuGet (works on any machine) -->
+    <PackageReference Include="CounterStrikeSharp.API" Version="1.0.305" />
+
+    <!-- Localization abstractions from NuGet -->
+    <PackageReference Include="Microsoft.Extensions.Localization.Abstractions" Version="10.0.0" />
+  </ItemGroup>
+
+  <!-- Copy localization files to the output folder -->
+  <ItemGroup>
+    <None Update="lang\**\*.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+
+</Project>

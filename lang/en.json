@@ -1,0 +1,19 @@
+{
+  "flash.you": "You",
+  "flash.you_were_flashed": "%you% were flashed for {0} seconds%dot%",
+  "flash.you_were_flashed_by_yourself": "%you% were flashed by yourself for {0} seconds%dot%",
+  "flash.player_flashed_you": "Your opponent {0} flashed %you% for {1} seconds%dot%",
+  "flash.you_flashed_player": "%you% flashed your opponent {0} for {1} seconds%dot%",
+  "flash.teammate_flashed_you": "Your teammate {0} flashed %you% for {1} seconds%dot%",
+  "flash.you_flashed_teammate": "%you% flashed your teammate {0} for {1} seconds%dot%",
+  "flash.info_enabled": "Flash notifications have been enabled%dot%",
+  "flash.info_disabled": "Flash notifications have been disabled%dot%",
+  "flash.info_already_on": "Flash notifications are already enabled%dot%",
+  "flash.info_already_off": "Flash notifications are already disabled%dot%",
+  "flash.blind_on": "Blind effect has been enabled%dot%",
+  "flash.blind_off": "Blind effect has been disabled%dot%",
+  "flash.blind_already_on": "Blind effect is already enabled%dot%",
+  "flash.blind_already_off": "Blind effect is already disabled%dot%",
+  "flash.no_permission": "%you% don't have permission to use this command%dot%",
+  "flash.players_only": "This command can only be used by players%dot%"
+}

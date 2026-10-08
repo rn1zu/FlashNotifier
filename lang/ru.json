@@ -1,0 +1,19 @@
+{
+  "flash.you": "Вы",
+  "flash.you_were_flashed": "%you% были ослеплены на {0} сек%dot%",
+  "flash.you_were_flashed_by_yourself": "%you% были ослеплены собой на {0} сек%dot%",
+  "flash.player_flashed_you": "Ваш соперник {0} ослепил %you% на {1} сек%dot%",
+  "flash.you_flashed_player": "%you% ослепили соперника {0} на {1} сек%dot%",
+  "flash.teammate_flashed_you": "Ваш союзник {0} ослепил %you% на {1} сек%dot%",
+  "flash.you_flashed_teammate": "%you% ослепили своего союзника {0} на {1} сек%dot%",
+  "flash.info_enabled": "Уведомления об ослеплении включены%dot%",
+  "flash.info_disabled": "Уведомления об ослеплении отключены%dot%",
+  "flash.info_already_on": "Уведомления об ослеплении уже включены%dot%",
+  "flash.info_already_off": "Уведомления об ослеплении уже отключены%dot%",
+  "flash.blind_on": "Эффект ослепления включён%dot%",
+  "flash.blind_off": "Эффект ослепления отключён%dot%",
+  "flash.blind_already_on": "Эффект ослепления уже включён%dot%",
+  "flash.blind_already_off": "Эффект ослепления уже отключён%dot%",
+  "flash.no_permission": "%you% не имеете прав для использования этой команды%dot%",
+  "flash.players_only": "Эта команда доступна только игрокам%dot%"
+}
