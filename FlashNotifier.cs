@@ -6,6 +6,7 @@ using CounterStrikeSharp.API.Modules.Events;
 using CounterStrikeSharp.API.Modules.Utils;
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Text.Json.Serialization;
 
 namespace FlashNotifier;
@@ -13,34 +14,43 @@ namespace FlashNotifier;
 public class FlashNotifierConfig : BasePluginConfig
 {
     [JsonPropertyName("FlashTagColor")]
-    public string FlashTagColor { get; set; } = "\u0009"; // Yellow
+    public string FlashTagColor { get; set; } = "\u0009";
 
     [JsonPropertyName("TextColor")]
-    public string TextColor { get; set; } = "\u0001"; // White
+    public string TextColor { get; set; } = "\u0001";
 
     [JsonPropertyName("YouColor")]
-    public string YouColor { get; set; } = "\u0001"; // White
+    public string YouColor { get; set; } = "\u0001";
+
+    [JsonPropertyName("ForColor")]
+    public string ForColor { get; set; } = "\u0001";
 
     [JsonPropertyName("DurationColor")]
-    public string DurationColor { get; set; } = "\u0001"; // Color of the seconds number
+    public string DurationColor { get; set; } = "\u0001";
 
     [JsonPropertyName("DurationDotColor")]
-    public string DurationDotColor { get; set; } = "\u0001"; // Color of the decimal dot (4.94)
+    public string DurationDotColor { get; set; } = "\u0001";
+
+    [JsonPropertyName("UnitColor")]
+    public string UnitColor { get; set; } = "\u0001";
 
     [JsonPropertyName("SentenceDotColor")]
-    public string SentenceDotColor { get; set; } = "\u0001"; // Color of the sentence-ending dot
+    public string SentenceDotColor { get; set; } = "\u0001";
 
     [JsonPropertyName("NameColorT")]
-    public string NameColorT { get; set; } = "\u0007"; // Red
+    public string NameColorT { get; set; } = "\u0007";
 
     [JsonPropertyName("NameColorCT")]
-    public string NameColorCT { get; set; } = "\u000B"; // Blue
+    public string NameColorCT { get; set; } = "\u000B";
 
     [JsonPropertyName("MinDuration")]
     public float MinDuration { get; set; } = 0.5f;
 
     [JsonPropertyName("DurationDecimals")]
     public int DurationDecimals { get; set; } = 1;
+
+    [JsonPropertyName("SecondsFormat")]
+    public string SecondsFormat { get; set; } = "short";
 
     [JsonPropertyName("NotifyTeamFlashOnly")]
     public bool NotifyTeamFlashOnly { get; set; } = false;
@@ -73,7 +83,7 @@ public class PlayerSettings
 public class FlashNotifierPlugin : BasePlugin, IPluginConfig<FlashNotifierConfig>
 {
     public override string ModuleName => "Flash Notifier";
-    public override string ModuleVersion => "1.0.0";
+    public override string ModuleVersion => "1.0.1";
     public override string ModuleAuthor => "You";
     public override string ModuleDescription => "Shows flash blindness duration and controls blind effect";
 
@@ -99,16 +109,130 @@ public class FlashNotifierPlugin : BasePlugin, IPluginConfig<FlashNotifierConfig
         AddCommand("blindinfo", "Toggle flash notifications. Usage: !blindinfo | !blindinfo 1 | !blindinfo 0", OnBlindInfoCommand);
     }
 
-    // Wraps Localizer: replaces %you% and %dot% with colored text
+    // ──────────────────────────────────────────────────────────────
+    //  Localization helpers
+    // ──────────────────────────────────────────────────────────────
+
     private string Tr(string key, params object[] args)
+        => BuildMessage(key, -1f, args);
+
+    private string TrD(string key, float duration, params object[] args)
+        => BuildMessage(key, duration, args);
+
+    private string BuildMessage(string key, float duration, object[] args)
     {
-        string message = Localizer[key, args];
+        string message = args.Length > 0 ? Localizer[key, args] : Localizer[key];
+
         string you = $"{_config.YouColor}{Localizer["flash.you"]}{_config.TextColor}";
         string dot = $"{_config.SentenceDotColor}.";
+
+        string forRaw = Localizer["flash.for"];
+        if (forRaw == "flash.for") forRaw = "";
+        string forWord = $"{_config.ForColor}{forRaw}{_config.TextColor}";
+
+        string unit = duration >= 0f ? GetSecondsUnit(duration) : string.Empty;
+
         return message
             .Replace("%you%", you)
-            .Replace("%dot%", dot);
+            .Replace("%dot%", dot)
+            .Replace("%for%", forWord)
+            .Replace("%unit%", unit);
     }
+
+    private string GetSecondsUnit(float duration)
+    {
+        string format = (_config.SecondsFormat ?? "short").Trim().ToLowerInvariant();
+
+        string baseKey;
+        bool plural;
+        switch (format)
+        {
+            // Long form — pluralized
+            case "long":
+            case "l":
+            case "full":
+            case "word":
+                baseKey = "flash.unit.long";
+                plural = true;
+                break;
+
+            // Medium form — "sec"
+            case "medium":
+            case "med":
+            case "m":
+                baseKey = "flash.unit.medium";
+                plural = false;
+                break;
+
+            // Short form — "s" (also the fallback for anything unknown)
+            default:
+                baseKey = "flash.unit.short";
+                plural = false;
+                break;
+        }
+
+        string unitText = plural
+            ? ResolvePlural(baseKey, duration)
+            : Localizer[baseKey];
+
+        if (unitText == baseKey) unitText = "";
+
+        return $"{_config.UnitColor}{unitText}{_config.TextColor}";
+    }
+
+    private string ResolvePlural(string baseKey, float duration)
+    {
+        int decimals = _config.DurationDecimals;
+        if (decimals < 0) decimals = 0;
+        if (decimals > 3) decimals = 3;
+        bool hasVisibleDecimals = decimals > 0;
+
+        double shown = Math.Round(duration, decimals, MidpointRounding.AwayFromZero);
+
+        var candidates = new List<string>(3);
+        void Add(string s) { if (!candidates.Contains(s)) candidates.Add(s); }
+
+        Add(RussianCategory(shown, hasVisibleDecimals));
+        Add(EnglishCategory(shown, hasVisibleDecimals));
+        Add("other");
+
+        foreach (var suffix in candidates)
+        {
+            string key = $"{baseKey}.{suffix}";
+            string val = Localizer[key];
+            if (val != key) return val;
+        }
+
+        return Localizer[baseKey];
+    }
+
+    // Russian CLDR rules for a countable noun like "секунда".
+    private static string RussianCategory(double shown, bool hasVisibleDecimals)
+    {
+        if (hasVisibleDecimals)
+            return "other";
+
+        long n = (long)Math.Round(shown);
+        n = Math.Abs(n);
+        long mod10 = n % 10;
+        long mod100 = n % 100;
+
+        if (mod10 == 1 && mod100 != 11) return "one";
+        if (mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14)) return "few";
+        return "many";
+    }
+
+    // English CLDR rules.
+    private static string EnglishCategory(double shown, bool hasVisibleDecimals)
+    {
+        if (!hasVisibleDecimals && Math.Abs(shown - 1.0) < 0.0001)
+            return "one";
+        return "other";
+    }
+
+    // ──────────────────────────────────────────────────────────────
+    //  Tick / blind suppression
+    // ──────────────────────────────────────────────────────────────
 
     private void OnTick()
     {
@@ -121,12 +245,14 @@ public class FlashNotifierPlugin : BasePlugin, IPluginConfig<FlashNotifierConfig
             var pawn = player.PlayerPawn.Value;
             if (pawn == null) continue;
 
-            if (pawn.FlashDuration > 0f)
-                pawn.FlashDuration = 0f;
-            if (pawn.FlashMaxAlpha > 0f)
-                pawn.FlashMaxAlpha = 0f;
+            if (pawn.FlashDuration > 0f) pawn.FlashDuration = 0f;
+            if (pawn.FlashMaxAlpha > 0f) pawn.FlashMaxAlpha = 0f;
         }
     }
+
+    // ──────────────────────────────────────────────────────────────
+    //  Connect / disconnect
+    // ──────────────────────────────────────────────────────────────
 
     private HookResult OnPlayerConnectFull(EventPlayerConnectFull @event, GameEventInfo info)
     {
@@ -161,18 +287,16 @@ public class FlashNotifierPlugin : BasePlugin, IPluginConfig<FlashNotifierConfig
         return _playerSettings[player.Slot];
     }
 
+    // ──────────────────────────────────────────────────────────────
+    //  Commands
+    // ──────────────────────────────────────────────────────────────
+
     private int ParseMode(CommandInfo commandInfo)
     {
         if (commandInfo.ArgCount < 2) return -1;
-
         string arg = commandInfo.GetArg(1).Trim().ToLower();
-
-        if (arg == "1" || arg == "on" || arg == "true" || arg == "yes")
-            return 1;
-
-        if (arg == "0" || arg == "off" || arg == "false" || arg == "no")
-            return 0;
-
+        if (arg == "1" || arg == "on" || arg == "true" || arg == "yes") return 1;
+        if (arg == "0" || arg == "off" || arg == "false" || arg == "no") return 0;
         return -1;
     }
 
@@ -195,7 +319,6 @@ public class FlashNotifierPlugin : BasePlugin, IPluginConfig<FlashNotifierConfig
 
         var settings = GetPlayerSettings(player);
         int mode = ParseMode(commandInfo);
-
         bool newState = mode == -1 ? !settings.BlindDisabled : (mode == 0);
 
         if (settings.BlindDisabled == newState)
@@ -234,7 +357,6 @@ public class FlashNotifierPlugin : BasePlugin, IPluginConfig<FlashNotifierConfig
 
         var settings = GetPlayerSettings(player);
         int mode = ParseMode(commandInfo);
-
         bool newState = mode == -1 ? !settings.NotificationsEnabled : (mode == 1);
 
         if (settings.NotificationsEnabled == newState)
@@ -245,10 +367,13 @@ public class FlashNotifierPlugin : BasePlugin, IPluginConfig<FlashNotifierConfig
         }
 
         settings.NotificationsEnabled = newState;
-
         string resultKey = newState ? "flash.info_enabled" : "flash.info_disabled";
         player.PrintToChat($" {_config.FlashTagColor}[Flash] {_config.TextColor}{Tr(resultKey)}");
     }
+
+    // ──────────────────────────────────────────────────────────────
+    //  Duration formatting
+    // ──────────────────────────────────────────────────────────────
 
     private string GetNameColor(CCSPlayerController player)
     {
@@ -260,21 +385,14 @@ public class FlashNotifierPlugin : BasePlugin, IPluginConfig<FlashNotifierConfig
     private string FormatDuration(float duration)
     {
         int decimals = _config.DurationDecimals;
-
-        // Any negative value means whole seconds without a dot
-        if (decimals < 0)
-            decimals = 0;
-
+        if (decimals < 0) decimals = 0;
         decimals = Math.Clamp(decimals, 0, 3);
 
-        // Whole seconds - no dot at all
-        if (decimals == 0)
-            return $"{_config.DurationColor}{duration.ToString("F0")}{_config.TextColor}";
-
-        string formatted = duration.ToString($"F{decimals}");
+        // Force invariant culture so the separator is ALWAYS '.' regardless
+        // of the server's OS locale (avoids "3,0" on Russian Windows).
+        string formatted = duration.ToString($"F{decimals}", CultureInfo.InvariantCulture);
         int dotIndex = formatted.IndexOf('.');
 
-        // Safety: if the dot is missing, color the whole thing as DurationColor
         if (dotIndex < 0)
             return $"{_config.DurationColor}{formatted}{_config.TextColor}";
 
@@ -286,6 +404,10 @@ public class FlashNotifierPlugin : BasePlugin, IPluginConfig<FlashNotifierConfig
                $"{_config.DurationColor}{fracPart}" +
                $"{_config.TextColor}";
     }
+
+    // ──────────────────────────────────────────────────────────────
+    //  Blind event
+    // ──────────────────────────────────────────────────────────────
 
     private HookResult OnPlayerBlind(EventPlayerBlind @event, GameEventInfo info)
     {
@@ -306,33 +428,33 @@ public class FlashNotifierPlugin : BasePlugin, IPluginConfig<FlashNotifierConfig
         // 1. Self-flash
         if (attacker != null && attacker.IsValid && attacker == victim)
         {
-            victim.PrintToChat($" {flashTag} {textColor}{Tr("flash.you_were_flashed_by_yourself", dur)}");
+            victim.PrintToChat($" {flashTag} {textColor}{TrD("flash.you_were_flashed_by_yourself", duration, dur)}");
             return HookResult.Continue;
         }
 
-        // 2. No attacker (world / environment)
+        // 2. No attacker
         if (attacker == null || !attacker.IsValid)
         {
-            victim.PrintToChat($" {flashTag} {textColor}{Tr("flash.you_were_flashed", dur)}");
+            victim.PrintToChat($" {flashTag} {textColor}{TrD("flash.you_were_flashed", duration, dur)}");
             return HookResult.Continue;
         }
 
         string attackerColored = $"{GetNameColor(attacker)}{attacker.PlayerName}{textColor}";
         string victimColored = $"{GetNameColor(victim)}{victim.PlayerName}{textColor}";
 
-        // 3. Flashed by a teammate
+        // 3. Team flash
         if (attacker.Team == victim.Team)
         {
             if (_config.NotifyTeamFlashOnly) return HookResult.Continue;
 
-            victim.PrintToChat($" {flashTag} {textColor}{Tr("flash.teammate_flashed_you", attackerColored, dur)}");
-            attacker.PrintToChat($" {flashTag} {textColor}{Tr("flash.you_flashed_teammate", victimColored, dur)}");
+            victim.PrintToChat($" {flashTag} {textColor}{TrD("flash.teammate_flashed_you", duration, attackerColored, dur)}");
+            attacker.PrintToChat($" {flashTag} {textColor}{TrD("flash.you_flashed_teammate", duration, victimColored, dur)}");
             return HookResult.Continue;
         }
 
-        // 4. Flashed by an enemy
-        victim.PrintToChat($" {flashTag} {textColor}{Tr("flash.player_flashed_you", attackerColored, dur)}");
-        attacker.PrintToChat($" {flashTag} {textColor}{Tr("flash.you_flashed_player", victimColored, dur)}");
+        // 4. Enemy flash
+        victim.PrintToChat($" {flashTag} {textColor}{TrD("flash.player_flashed_you", duration, attackerColored, dur)}");
+        attacker.PrintToChat($" {flashTag} {textColor}{TrD("flash.you_flashed_player", duration, victimColored, dur)}");
 
         return HookResult.Continue;
     }
